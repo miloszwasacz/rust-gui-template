@@ -10,7 +10,7 @@ use raw_window_handle::HasRawWindowHandle;
 use skia_safe::gpu::gl::{Format, FramebufferInfo, Interface};
 use skia_safe::gpu::surfaces::wrap_backend_render_target;
 use skia_safe::gpu::{backend_render_targets, direct_contexts, DirectContext, SurfaceOrigin};
-use skia_safe::{Canvas, ColorType, Surface};
+use skia_safe::{scalar, Canvas, ColorType, Surface};
 use std::ffi::CString;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -76,7 +76,7 @@ impl Window {
         let gl = OpenGL::new(gl_config, &raw);
         let skia = Skia::new(&raw, gl_config);
 
-        Window {
+        let mut window = Window {
             raw,
             gl,
             skia,
@@ -84,7 +84,9 @@ impl Window {
             // Stuff only for rendering the example animation. Can be safely removed in an actual application.
             frame: 0,
             previous_frame_start: std::time::Instant::now(),
-        }
+        };
+        window.update_scale_factor();
+        window
     }
 
     /// Returns the window's unique ID.
@@ -95,9 +97,10 @@ impl Window {
     /// Resets the canvas to its initial state ([Matrix](skia_safe::Matrix) and [Clip](Canvas::local_clip_bounds))
     /// and [clears](Canvas::clear) it with the `background` color.
     pub fn reset_canvas(&mut self, background: impl Into<skia_safe::Color4f>) {
-        let canvas = self.skia.surface.canvas();
-        canvas.restore_to_count(0);
-        canvas.clear(background);
+        self.skia.surface.canvas().restore_to_count(0);
+        self.skia.surface.canvas().reset_matrix();
+        self.update_scale_factor();
+        self.skia.surface.canvas().clear(background);
     }
 
     /// Draws on the window's Skia canvas using the instructions defined in `drawing`.
@@ -120,6 +123,15 @@ impl Window {
             .surface
             .resize(&self.gl.ctx, u32_to_nonzero(width), u32_to_nonzero(height));
         self.skia.resize_surface(new_size);
+    }
+
+    /// Updates the scale factor of the window's canvas.
+    fn update_scale_factor(&mut self) {
+        let scale_factor = self.raw.scale_factor() as scalar;
+        self.skia
+            .surface
+            .canvas()
+            .scale((scale_factor, scale_factor));
     }
 
     /// Makes the window's OpenGL context current. Should be called before

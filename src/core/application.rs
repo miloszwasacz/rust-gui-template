@@ -1,6 +1,6 @@
-use crate::renderer;
 use crate::core::window::Window;
 use crate::core::*;
+use crate::renderer;
 
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin_winit::DisplayBuilder;
@@ -95,7 +95,7 @@ impl Application {
                 EventLoopError::Os(e) => {
                     eprintln!("OS error: {e}");
                     process::exit(exit_codes::OS_ERROR)
-                } 
+                }
                 EventLoopError::RecreationAttempt => {
                     eprintln!("Event loop cannot be recreated!");
                     process::exit(exit_codes::EVENT_LOOP_ERROR)
@@ -103,10 +103,9 @@ impl Application {
                 EventLoopError::ExitFailure(code) => {
                     eprintln!("Unknown error with code: {code}");
                     process::exit(code)
-                },
-            }
+                }
+            },
         }
-        
     }
 }
 
@@ -164,7 +163,6 @@ impl ApplicationHandler for ApplicationInternal {
             WindowEvent::Resized(physical_size) => window.resize(physical_size),
             WindowEvent::Moved(_) => {}
             WindowEvent::CloseRequested => {
-                // window.make_current();
                 self.window_indices.remove(&window_id);
                 self.windows.remove(window_index);
                 if self.windows.is_empty() {
@@ -214,7 +212,7 @@ impl ApplicationHandler for ApplicationInternal {
             WindowEvent::TouchpadPressure { .. } => {}
             WindowEvent::AxisMotion { .. } => {}
             WindowEvent::Touch(_) => {}
-            WindowEvent::ScaleFactorChanged { .. } => {}
+            WindowEvent::ScaleFactorChanged { .. } => window.request_redraw(),
             WindowEvent::ThemeChanged(_) => {}
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {

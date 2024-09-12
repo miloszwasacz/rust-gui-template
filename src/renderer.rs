@@ -6,7 +6,7 @@
 #![allow(unknown_lints)]
 #![allow(clippy::unusual_byte_groupings)]
 use skia_safe::{
-    gradient_shader, Color, Matrix, Paint, PaintJoin, PaintStyle, Path, Point, TileMode,
+    gradient_shader, scalar, Color, Matrix, Paint, PaintJoin, PaintStyle, Path, Point, TileMode,
 };
 use std::cmp::min;
 
@@ -32,7 +32,11 @@ pub fn render_frame(
 
     let size = {
         let dim = canvas.image_info().dimensions();
-        min(dim.width, dim.height)
+        let size = min(dim.width, dim.height);
+
+        // We need to revert the scale factor applied to the canvas by the window.
+        let scale = canvas.local_to_device_as_3x3().scale_x();
+        (size as scalar / scale) as i32
     };
 
     let center = (size / 2, size / 2);
