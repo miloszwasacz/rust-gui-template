@@ -224,8 +224,8 @@ impl ApplicationHandler for ApplicationInternal {
                     window.previous_frame_start = frame_start;
                     window.frame += 1;
                     let frame = window.frame;
+                    window.reset_canvas(skia_safe::Color::WHITE);
                     window.draw(|canvas| {
-                        canvas.clear(skia_safe::Color::WHITE);
                         renderer::render_frame(frame % 360, 60, 60, canvas);
                     });
                 }

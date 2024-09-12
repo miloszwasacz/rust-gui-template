@@ -45,6 +45,8 @@ struct OpenGL {
 struct Skia {
     surface: Surface,
     direct_ctx: DirectContext,
+    num_samples: usize,
+    stencil_size: usize,
 }
 
 impl Window {
@@ -90,6 +92,14 @@ impl Window {
         self.raw.id()
     }
 
+    /// Resets the canvas to its initial state ([Matrix](skia_safe::Matrix) and [Clip](Canvas::local_clip_bounds))
+    /// and [clears](Canvas::clear) it with the `background` color.
+    pub fn reset_canvas(&mut self, background: impl Into<skia_safe::Color4f>) {
+        let canvas = self.skia.surface.canvas();
+        canvas.restore_to_count(0);
+        canvas.clear(background);
+    }
+
     /// Draws on the window's Skia canvas using the instructions defined in `drawing`.
     pub fn draw(&mut self, mut drawing: impl FnMut(&Canvas)) {
         self.make_current();
@@ -109,6 +119,7 @@ impl Window {
         self.gl
             .surface
             .resize(&self.gl.ctx, u32_to_nonzero(width), u32_to_nonzero(height));
+        self.skia.resize_surface(new_size);
     }
 
     /// Makes the window's OpenGL context current. Should be called before
@@ -194,6 +205,34 @@ impl Skia {
         let mut direct_ctx =
             direct_contexts::make_gl(interface, None).expect("Could not create direct context");
 
+        let num_samples = gl_config.num_samples() as usize;
+        let stencil_size = gl_config.stencil_size() as usize;
+
+        let surface = Self::create_surface(
+            &mut direct_ctx,
+            raw_window.inner_size(),
+            num_samples,
+            stencil_size,
+        );
+
+        Skia {
+            surface,
+            direct_ctx,
+            num_samples,
+            stencil_size,
+        }
+    }
+
+    fn create_surface(
+        direct_ctx: &mut DirectContext,
+        size: PhysicalSize<u32>,
+        num_samples: usize,
+        stencil_size: usize,
+    ) -> Surface {
+        let size = (
+            size.width.try_into().expect("Could not convert width"),
+            size.height.try_into().expect("Could not convert height"),
+        );
         let fb_info = unsafe {
             let mut fboid = 0;
             gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut fboid);
@@ -204,31 +243,26 @@ impl Skia {
                 ..Default::default()
             }
         };
-
-        let num_samples = gl_config.num_samples() as usize;
-        let stencil_size = gl_config.stencil_size() as usize;
-
-        let PhysicalSize { width, height } = raw_window.inner_size();
-        let size = (
-            width.try_into().expect("Could not convert width"),
-            height.try_into().expect("Could not convert height"),
-        );
-
         let target = backend_render_targets::make_gl(size, num_samples, stencil_size, fb_info);
-        let surface = wrap_backend_render_target(
-            &mut direct_ctx,
+
+        wrap_backend_render_target(
+            direct_ctx,
             &target,
             SurfaceOrigin::BottomLeft,
             ColorType::RGBA8888,
             None,
             None,
         )
-        .expect("Could not create Skia surface");
+        .expect("Could not create Skia surface")
+    }
 
-        Skia {
-            surface,
-            direct_ctx,
-        }
+    fn resize_surface(&mut self, size: PhysicalSize<u32>) {
+        self.surface = Self::create_surface(
+            &mut self.direct_ctx,
+            size,
+            self.num_samples,
+            self.stencil_size,
+        );
     }
 }
 
